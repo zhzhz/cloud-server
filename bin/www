@@ -8,6 +8,8 @@ var app = require('../app');
 var debug = require('debug')('cloud-server:server');
 var http = require('http');
 const {Server} = require("socket.io");
+const net = require('net');
+const Obj2json = require('../controllers/Obj2json');
 
 /**
  * Get port from environment and store in Express.
@@ -35,11 +37,26 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("socketio connection");
 
-  socket.on('clientReq', function(data) {
-    console.log("clientReq", data);
+  //创建连接云和子的连接
+  let socketClient = net.connect({host:'127.0.0.1', port:5000},  () => {
+    console.log('connected to cloud box server!');
   });
 
-  socket.emit('serverRes', { description: 'socket.io server res'});
+  //当box传回数据，字符串化后返回给浏览器
+  socketClient.on('data', (data) => {
+    //console.log('data back from cloud box server!',data.toString());
+
+    socket.emit('serverRes', data.toString());
+  });
+
+  socket.on('clientReq', function(data) {
+    //console.log("socket.io clientReq", data);
+    
+    //将数据字符串化转发给云盒子
+    socketClient.write(Obj2json(data));//向box服务器发送请求
+  });
+
+  //socket.emit('serverRes', { description: 'socket.io server res'});
 });
 
 server.listen(port);
